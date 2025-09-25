@@ -378,6 +378,16 @@
           transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
 
+        /* Weekly summary amount styling to prevent touching corners */
+        .week-summary .amount-text {
+          padding: 4px 6px;
+          word-break: break-all;
+          line-height: 1.2;
+          font-size: 0.875rem;
+          overflow-wrap: break-word;
+          hyphens: auto;
+        }
+
         /* Brighter Calendar Text */
         .weekday-header {
             font-weight: 600;
@@ -1150,14 +1160,14 @@
                         <div class="rounded-lg shadow-sm p-6 mb-8" style="background-color: var(--bg-primary); border: 1px solid var(--border-color);">
                             <h3 class="text-xl font-bold mb-4" style="color: var(--text-primary);">Account Summary</h3>
                             <div id="db-account-summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div><p class="text-sm" style="color: var(--text-secondary);">NET ACCOUNT VALUE</p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
-                                <div><p class="text-sm" style="color: var(--text-secondary);">NET REALIZED P&L</p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
-                                <div><p class="text-sm" style="color: var(--text-secondary);">AVAILABLE CASH</p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
-                                <div><p class="text-sm" style="color: var(--text-secondary);">DEPLOYED CAPITAL</p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
-                                <div><p class="text-sm" style="color: var(--text-secondary);">TOTAL DEPOSITS</p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
-                                <div><p class="text-sm" style="color: var(--text-secondary);">TOTAL WITHDRAWN</p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
-                                <div><p class="text-sm" style="color: var(--text-secondary);">STARTING BALANCE</p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
-                                <div><p class="text-sm font-medium" style="color: var(--text-secondary);">TOTAL OPEN RISK <span class="text-xs">(0.0%)</span></p><p class="text-2xl font-bold" style="color: var(--text-primary);">₹0.00</p></div>
+                                <div><p class="text-sm" style="color: var(--text-secondary);">NET ACCOUNT VALUE</p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
+                                <div><p class="text-sm" style="color: var(--text-secondary);">NET REALIZED P&L</p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
+                                <div><p class="text-sm" style="color: var(--text-secondary);">AVAILABLE CASH</p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
+                                <div><p class="text-sm" style="color: var(--text-secondary);">DEPLOYED CAPITAL</p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
+                                <div><p class="text-sm" style="color: var(--text-secondary);">TOTAL DEPOSITS</p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
+                                <div><p class="text-sm" style="color: var(--text-secondary);">TOTAL WITHDRAWN</p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
+                                <div><p class="text-sm" style="color: var(--text-secondary);">STARTING BALANCE</p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
+                                <div><p class="text-sm font-medium" style="color: var(--text-secondary);">TOTAL OPEN RISK <span class="text-xs">(0.0%)</span></p><p class="text-2xl font-bold" style="color: var(--text-primary);">Loading...</p></div>
                             </div>
                         </div>
                         
@@ -4321,8 +4331,8 @@
                         return total + (trade.entry_price * trade.quantity);
                     }, 0);
                 
-                // Calculate available cash
-                const availableCash = deposits - withdrawals - deployedCapital;
+                // Calculate available cash (same formula as dashboard)
+                const availableCash = Math.max(0, netAccountValue - deployedCapital);
                 
                 // Calculate open risk percentage and amount from active trades
                 const openRiskData = (() => {
@@ -4695,7 +4705,7 @@
                     const amtColor = weekPnl>=0 ? 'text-green-600' : 'text-red-600';
                     weekBox.innerHTML = `
                         <div class="text-xs" style="color: var(--text-secondary);">${label}</div>
-                        <div class="text-lg font-semibold ${weekPnl===0?'text-gray-500':amtColor}">${amt}</div>
+                        <div class="amount-text font-semibold ${weekPnl===0?'text-gray-500':amtColor}">${amt}</div>
                         <div class="mt-1 inline-block text-[11px] px-2 py-[2px] rounded-full" style="background-color: var(--bg-secondary); color: var(--text-secondary);">${activeDays || 0} ${activeDays===1?'day':'days'}</div>
                     `;
                     
@@ -11308,7 +11318,8 @@
                 const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : (grossProfit > 0 ? '∞' : '0.00');
                 const avgWin = wins > 0 ? (grossProfit / wins).toFixed(2) : '0.00';
                 const avgLoss = losses > 0 ? (grossLoss / losses).toFixed(2) : '0.00';
-                const avgWinLoss = totalTrades > 0 ? (netPnl / totalTrades).toFixed(2) : '0.00';
+                // Avg win/loss ratio: ratio of average win size to average loss size
+                const avgWinLoss = avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : (avgWin > 0 ? '∞' : '0.00');
 
                 // Update DOM elements
                 const netPnlEl = document.getElementById('db-net-pnl');
@@ -11346,6 +11357,12 @@
                 const avgWinLossEl = document.getElementById('db-avg-win-loss');
                 if (avgWinLossEl) avgWinLossEl.textContent = avgWinLoss;
                 
+                const avgWinEl = document.getElementById('db-avg-win');
+                if (avgWinEl) avgWinEl.textContent = `+${formatCurrency(avgWin)}`;
+                
+                const avgLossEl = document.getElementById('db-avg-loss');
+                if (avgLossEl) avgLossEl.textContent = `-${formatCurrency(avgLoss)}`;
+                
                 // Update account summary with filtered data
                 updateAccountSummary(filteredTrades, netPnl);
             }
@@ -11355,7 +11372,8 @@
                 const ledger = appState.ledger || [];
                 const deposits = ledger.filter(l => l.type === 'Deposit').reduce((sum, l) => sum + (l.amount || 0), 0);
                 const withdrawals = ledger.filter(l => l.type === 'Withdrawal').reduce((sum, l) => sum + (l.amount || 0), 0);
-                const deployedCapital = filteredTrades.filter(t => t.exit_price && t.exit_date).reduce((sum, t) => sum + (t.quantity * t.entry_price), 0);
+                // Deployed capital should be from OPEN trades (not closed trades)
+                const deployedCapital = filteredTrades.filter(t => !t.exit_date || !t.exit_price).reduce((sum, t) => sum + ((t.entry_price || 0) * (t.quantity || 0)), 0);
                 
                 const accountValue = deposits - withdrawals + netPnl;
                 const availableCash = Math.max(0, accountValue - deployedCapital);
