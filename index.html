@@ -2792,28 +2792,53 @@
                 });
             },
             signIn: async (email, password) => {
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) throw error;
-                return { user: data.user, session: data.session };
+                try {
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    if (error) throw error;
+                    return { user: data.user, session: data.session };
+                } catch (error) {
+                    console.error('Sign in error:', error);
+                    throw error;
+                }
             },
             signUp: async (email, password) => {
-                const { data, error } = await supabase.auth.signUp({ email, password });
-                if (error) throw error;
-                // Optional: Create a profile entry upon sign-up
-                if (data.user) {
-                    await supabase.from('profiles').insert({ id: data.user.id, name: 'New User', email: data.user.email });
+                try {
+                    const { data, error } = await supabase.auth.signUp({ email, password });
+                    if (error) throw error;
+                    // Optional: Create a profile entry upon sign-up
+                    if (data.user) {
+                        try {
+                            await supabase.from('profiles').insert({ id: data.user.id, name: 'New User', email: data.user.email });
+                        } catch (profileError) {
+                            console.warn('Profile creation failed:', profileError);
+                            // Continue without throwing - profile creation is optional
+                        }
+                    }
+                    return { user: data.user, session: data.session };
+                } catch (error) {
+                    console.error('Sign up error:', error);
+                    throw error;
                 }
-                return { user: data.user, session: data.session };
             },
             updateProfile: async (user, profileData) => {
-                const { data, error } = await supabase.auth.updateUser({
-                    data: { name: profileData.displayName }
-                });
-                if (error) throw error;
-                return data;
+                try {
+                    const { data, error } = await supabase.auth.updateUser({
+                        data: { name: profileData.displayName }
+                    });
+                    if (error) throw error;
+                    return data;
+                } catch (error) {
+                    console.error('Update profile error:', error);
+                    throw error;
+                }
             },
             signOut: async () => {
-                await supabase.auth.signOut();
+                try {
+                    await supabase.auth.signOut();
+                } catch (error) {
+                    console.error('Sign out error:', error);
+                    // Don't throw - logout should always succeed from UI perspective
+                }
             },
             getUser: async () => {
                 const { data, error } = await supabase.auth.getSession();
@@ -3573,11 +3598,15 @@
 
         // --- AUTHENTICATION & UI VISIBILITY ---
         auth.onAuthStateChanged(async (user) => {
+            console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
             if (user) {
                 appState.user = user;
                 authContainer.classList.add('hidden');
+                authContainer.style.display = 'none';
                 appContainer.classList.remove('hidden');
+                appContainer.style.display = 'flex';
                 document.getElementById('user-display-name').textContent = user.displayName || 'Guest';
+                console.log('User logged in - showing app container');
                 
                 appState.unsubscribeTrades();
                 appState.unsubscribeLedger();
@@ -3597,7 +3626,10 @@
             } else {
                 appState.user = null;
                 appContainer.classList.add('hidden');
+                appContainer.style.display = 'none';
                 authContainer.classList.remove('hidden');
+                authContainer.style.display = 'flex';
+                console.log('User logged out - showing auth container');
                 if (appState.clockIntervalId) clearInterval(appState.clockIntervalId);
                 appState.clockIntervalId = null;
             }
@@ -3643,7 +3675,8 @@
                     showToast('Welcome! Please check your email to confirm your account.', 'success');
                 }
             } catch (error) {
-                authMessage.textContent = error.message;
+                console.error('Auth form error:', error);
+                authMessage.textContent = error.message || 'Authentication failed. Please try again.';
                 authMessage.style.color = 'red';
             } finally {
                 toggleSpinner(button, false);
@@ -3735,8 +3768,41 @@
         document.querySelectorAll('.logout-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                await auth.signOut();
+                console.log('Logout button clicked');
+                try {
+                    await auth.signOut();
+                    console.log('Supabase signOut completed');
+                } catch (error) {
+                    console.error('Supabase signOut error:', error);
+                }
+                
+                // Force UI update to ensure proper logout state
+                console.log('Forcing UI logout state');
+                appState.user = null;
+                
+                // Force hide app container
+                appContainer.classList.add('hidden');
+                appContainer.style.display = 'none';
+                console.log('App container hidden:', appContainer.classList.contains('hidden'));
+                
+                // Force show auth container
+                authContainer.classList.remove('hidden');
+                authContainer.style.display = 'flex';
+                console.log('Auth container shown:', !authContainer.classList.contains('hidden'));
+                
+                // Clear intervals
+                if (appState.clockIntervalId) clearInterval(appState.clockIntervalId);
+                appState.clockIntervalId = null;
+                
+                // Clear all data
+                appState.trades = [];
+                appState.ledger = [];
+                appState.challenge = null;
+                appState.challengeHistory = [];
+                appState.achievements = [];
+                
                 showToast("You have been signed out.", "info");
+                console.log('Logout completed');
             });
         });
 
